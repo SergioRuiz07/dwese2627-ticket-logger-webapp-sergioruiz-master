@@ -1,40 +1,34 @@
 package org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities;
 
-import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.Size;
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
+import org.hibernate.annotations.JoinColumnOrFormula;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-
+@Entity
+@Table(name = "provinces")
 public class Province {
     private long id;
-    @NotEmpty(message = "{msg.region.code.notEmpty}")
-    @Size(max = 2, message = "{msg.region.code.size}")
+    @NotEmpty(message = "{msg.province.code.notEmpty}")
+    @Size(max = 2, message = "{msg.province.code.size}")
+    @Column(name = "code",nullable = false,length = 2)
     private String code;
 
 
     // Campo que almacena el nombre completo de la región, como "Andalucía" o "Cataluña".
-    @NotEmpty(message = "{msg.region.name.notEmpty}")
-    @Size(max = 100, message = "{msg.region.name.notEmpty}")
+    @NotEmpty(message = "{msg.province.name.notEmpty}")
+    @Size(max = 100, message = "{msg.province.name.size}")
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
+    @NotNull(message = "{msg.province.region.notNUll}")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "region_id", nullable = false)
     private Region region;
-
-    @AssertTrue(message = "{msg.province.region.notNull}")
-    public boolean isRegionSelected(){
-        return region != null && region.getId() != null;
-    }
-
-    public Province (String code, String name,Region region){
-        this.code = code;
-        this.name = name;
-        this.region = region;
-    }
 }

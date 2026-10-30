@@ -1,30 +1,42 @@
 package org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities;
 
+import jakarta.persistence.*;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.NonNull;
+import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-
+@Entity
+@Table(name = "regions")
 public class Region {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     @NotEmpty(message = "{msg.region.code.notEmpty}")
     @Size(max = 2, message = "{msg.region.code.size}")
+    @Column(name= "code", nullable = false,length = 2)
     private String code;
 
 
     // Campo que almacena el nombre completo de la región, como "Andalucía" o "Cataluña".
     @NotEmpty(message = "{msg.region.name.notEmpty}")
     @Size(max = 100, message = "{msg.region.name.notEmpty}")
+    @Column(name="name", nullable = false,length = 100)
     private String name;
 
+    @OneToMany(mappedBy = "region",fetch = FetchType.LAZY,
+    cascade = CascadeType.ALL,orphanRemoval = false)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private List<Province> listProvincies = new ArrayList<>();
     public Region(String code, String name){
         this.code = code;
         this.name = name;
