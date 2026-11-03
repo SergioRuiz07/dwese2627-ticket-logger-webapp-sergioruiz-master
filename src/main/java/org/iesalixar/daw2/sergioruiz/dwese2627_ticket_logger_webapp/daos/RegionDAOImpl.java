@@ -29,7 +29,7 @@ public class RegionDAOImpl implements RegionDAO {
     @Override
     public List<Region> listAllRegions() {
         logger.info("Listing all regions from the database.");
-        String sql = "SELECT r FROM Region";
+        String sql = "SELECT r FROM Region r";
         List<Region> regions = entityManager.createQuery(sql, Region.class).getResultList();
         logger.info("Retrieved {} regions from the database.", regions.size());
         return regions;
@@ -69,7 +69,7 @@ public class RegionDAOImpl implements RegionDAO {
             entityManager.remove(region);
             logger.info("Region with id {} removed",region.getId());
         }else {
-            logger.warn("Region with id {} not found",region.getId());
+            logger.warn("Region with id {} not found", id);
         }
     }
 
@@ -85,7 +85,7 @@ public class RegionDAOImpl implements RegionDAO {
         if(region!=null){
             logger.info("Region find with code {} and id {}",region.getCode(),region.getId());
         }else {
-            logger.warn("Region with id {} not found",region.getId());
+            logger.warn("Region with id {} not found", id);
         }
         return region;
     }

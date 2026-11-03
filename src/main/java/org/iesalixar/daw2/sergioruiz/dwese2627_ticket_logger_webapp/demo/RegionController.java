@@ -2,7 +2,12 @@ package org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.demo;
 
 import jakarta.validation.Valid;
 import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.daos.RegionDAO;
+import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.dtos.RegionCreateDTO;
+import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.dtos.RegionDTO;
+import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.dtos.RegionDetailDTO;
+import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.dtos.RegionUpdateDTO;
 import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities.Region;
+import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.mappers.RegionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +18,7 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.swing.tree.RowMapper;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
@@ -33,40 +39,43 @@ public class RegionController {
     public String ListRegions(Model model) throws SQLException {
         logger.info("Solicitando la lista de todas las regiones...");
         List<Region> listRegions = null;
+        List< RegionDTO> listRegionsDTOS = null;
         try {
             listRegions = regionDAO.listAllRegions();
-            logger.info("Se ha cargado {} regiones",listRegions.size());
+            listRegionsDTOS = RegionMapper.toDTOList(listRegions);
+            logger.info("Se ha cargado {} regiones",listRegionsDTOS.size());
         } catch (SQLException e){
             logger.error("Error al listas las regiones: {}",e.getMessage());
             model.addAttribute("errorMesage","Error al listar las regiones");
         }
-        model.addAttribute("listRegions",listRegions);
+        model.addAttribute("listRegions",listRegionsDTOS);
         return  "views/region/region-list";
     }
     @GetMapping("/new")
     public String showNewForm(Model model){
         logger.info("Mostrando formulario para nueva región");
-        model.addAttribute("region",new Region());
+        model.addAttribute("region",new RegionCreateDTO());
         return "views/region/region-form";
     }
 
     @PostMapping("/insert")
-    public String insertRegion(@Valid @ModelAttribute("region") Region region, BindingResult result, RedirectAttributes redirectAttributes, Locale locale) {
-        logger.info("Insertando nueva región con código {}", region.getCode());
+    public String insertRegion(@Valid @ModelAttribute("region") RegionCreateDTO regionDTO, BindingResult result, RedirectAttributes redirectAttributes, Locale locale) {
+        logger.info("Insertando nueva región con código {}", regionDTO.getCode());
         try {
             if (result.hasErrors()) {
                 return "views/region/region-form";  // Devuelve el formulario para mostrar los errores de validación
             }
-            if (regionDAO.existsRegionByCode(region.getCode())) {
-                logger.warn("El código de la región {} ya existe.", region.getCode());
+            if (regionDAO.existsRegionByCode(regionDTO.getCode())) {
+                logger.warn("El código de la región {} ya existe.", regionDTO.getCode());
                 String errorMessage = messageSource.getMessage("msg.region-controller.insert.codeExist", null, locale);
                 redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
                 return "redirect:/regions/new";
             }
+            Region region = RegionMapper.toEntity(regionDTO);
             regionDAO.insertRegion(region);
             logger.info("Región {} insertada con éxito.", region.getCode());
         } catch (Exception e) {
-            logger.error("Error al insertar la región {}: {}", region.getCode(), e.getMessage());
+            logger.error("Error al insertar la región {}: {}", regionDTO.getCode(), e.getMessage());
             String errorMessage = messageSource.getMessage("msg.region-controller.insert.error", null, locale);
             redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
         }
@@ -78,11 +87,13 @@ public class RegionController {
     public String showEditForm(@RequestParam("id") Long id, Model model){
         logger.info("Mostrando el formulario de edición con el id:{}",id);
         Region region = null;
+        RegionUpdateDTO regionDTO = null;
         try{
             region = regionDAO.getRegionById(id);
             if (region == null) {
                 logger.warn("Error, No se encontró la región con el od:{}",id);
             }
+            regionDTO = RegionMapper.toUpdateDTO(region);
         } catch (SQLException e) {
             logger.error("Error al obtener la región con el id:{}",id);
             model.addAttribute("erroMessage","Error al obtener la región");
@@ -91,22 +102,31 @@ public class RegionController {
         return "/views/region/region-form";
     }
     @PostMapping("/update")
-    public String updateRegion(@Valid @ModelAttribute("region") Region region,  BindingResult result, RedirectAttributes redirectAttributes,  Locale locale) {
-        logger.info("Actualizando región con ID {}", region.getId());
+    public String updateRegion(@Valid @ModelAttribute("region") RegionUpdateDTO regionDTO,  BindingResult result, RedirectAttributes redirectAttributes,  Locale locale) {
+        logger.info("Actualizando región con ID {}", regionDTO.getId());
         try {
             if (result.hasErrors()) {
                 return "views/region/region-form";  // Devuelve el formulario para mostrar los errores de validación
             }
-            if (regionDAO.existsRegionByCodeAndNotId(region.getCode(),(long)region.getId())) {
-                logger.warn("El código de la región {} ya existe para otra región.", region.getCode());
+            if (regionDAO.existsRegionByCodeAndNotId(regionDTO.getCode(),(long)regionDTO.getId())) {
+                logger.warn("El código de la región {} ya existe para otra región.", regionDTO.getCode());
                 String errorMessage = messageSource.getMessage("msg.region-controller.update.codeExist", null, locale);
                 redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
-                return "redirect:/regions/edit?id=" + region.getId();
+                return "redirect:/regions/edit?id=" + regionDTO.getId();
             }
+            // Cargar entidad existente y copiar campos editables desde el DTO
+            Region region = regionDAO.getRegionById(regionDTO.getId());
+            if (region == null) {
+                logger.warn("No se encontró la región con ID {}", regionDTO.getId());
+                String notFound = messageSource.getMessage("msg.region-controller.detail.notFound", null, locale);
+                redirectAttributes.addFlashAttribute("errorMessage", notFound);
+                return "redirect:/regions";
+            }
+            RegionMapper.copyToExistingEntity(regionDTO,region);
             regionDAO.updateRegion(region);
             logger.info("Región con ID {} actualizada con éxito.", region.getId());
         } catch (Exception e) {
-            logger.error("Error al actualizar la región con ID {}: {}", region.getId(), e.getMessage());
+            logger.error("Error al actualizar la región con ID {}: {}", regionDTO.getId(), e.getMessage());
             String errorMessage = messageSource.getMessage("msg.region-controller.update.error", null, locale);
             redirectAttributes.addFlashAttribute("errorMessage", errorMessage);
         }
@@ -124,5 +144,26 @@ public class RegionController {
             redirectAttributes.addFlashAttribute("errorMessage","Error al eliminar la región");
         }
         return "redirect:/regions";
+    }
+    @GetMapping("/detail")
+    public String showDetail(@RequestParam("id")Long id,Model model, RedirectAttributes redirectAttributes,Locale locale)
+            throws SQLException {
+        logger.info("Mostrando detalles de la region con id {}",id);
+        try {
+            Region region = regionDAO.getRegionById(id);
+            if (region == null) {
+                String msg = messageSource.getMessage("msg.region-controller.detail.notFound",null,locale);
+                redirectAttributes.addFlashAttribute("errorMessage",msg);
+                return "redirect:/regions";
+            }
+            RegionDetailDTO regionDTO = RegionMapper.toDetailDTO(region);
+            model.addAttribute("region", regionDTO);
+            return "views/region/region-detail";
+        }catch (SQLException e){
+            logger.error("Error al obtener los datos de la region con id {}",id);
+            String msg = messageSource.getMessage("msg.region-controller.detail.error",null,locale);
+            redirectAttributes.addFlashAttribute("error",msg);
+            return "redirect:/regions";
+        }
     }
 }
