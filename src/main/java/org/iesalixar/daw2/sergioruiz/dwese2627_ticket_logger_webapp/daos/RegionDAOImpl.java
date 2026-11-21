@@ -2,15 +2,13 @@ package org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.daos;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.*;
 import jakarta.transaction.Transactional;
 import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities.Region;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.BeanPropertyRowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.sql.SQLException;
 import java.util.List;
 
 @Repository
@@ -29,7 +27,7 @@ public class RegionDAOImpl implements RegionDAO {
     @Override
     public List<Region> listAllRegions() {
         logger.info("Listing all regions from the database.");
-        String sql = "SELECT r FROM Region r";
+        String sql = "SELECT r FROM Region r ORDER BY r.name";
         List<Region> regions = entityManager.createQuery(sql, Region.class).getResultList();
         logger.info("Retrieved {} regions from the database.", regions.size());
         return regions;
@@ -91,6 +89,25 @@ public class RegionDAOImpl implements RegionDAO {
     }
 
     /**
+     * Recupera una región por su ID con sus provincias ya cargadas (JOIN FETCH).
+     * @param id ID de la región
+     * @return Región encontrada o null si no existe
+     */
+    @Override
+    public Region getRegionByIdWithProvinces(Long id) {
+        logger.info("Retrieving region with provinces by id: {}", id);
+        String hql = "SELECT DISTINCT r FROM Region r LEFT JOIN FETCH r.provinces WHERE r.id = :id";
+        List<Region> result = entityManager.createQuery(hql, Region.class)
+                .setParameter("id", id)
+                .getResultList();
+        if (result.isEmpty()) {
+            logger.warn("Region with id {} not found", id);
+            return null;
+        }
+        return result.get(0);
+    }
+
+    /**
      * Verifica si una región con el código especificado ya existe en la base de datos.
      * @param code el código de la región a verificar.
      * @return true si una región con el código ya existe, false de lo contrario.
@@ -117,7 +134,7 @@ public class RegionDAOImpl implements RegionDAO {
     @Override
     public boolean existsRegionByCodeAndNotId(String code, Long id) {
         logger.info("Checking if region with code: {} exists excluding id: {}", code, id);
-        String sql = "SELECT COUNT(r) FROM Region r WHERE UPPER(r.code) = :code AND id != :id";
+        String sql = "SELECT COUNT(r) FROM Region r WHERE UPPER(r.code) = :code AND r.id <> :id";
         Long count = entityManager.createQuery(sql, Long.class)
                 .setParameter("code",code.toUpperCase())
                 .setParameter("id",id)
@@ -125,5 +142,60 @@ public class RegionDAOImpl implements RegionDAO {
         boolean exists = count != null && count > 0;
         logger.info("Region with code: {} exists excluding id {}: {}", code, id, exists);
         return exists;
+    }
+    /**
+     * Lista una página de regiones ordenadas por nombre.
+     *
+     * @param page página actual (0-based)
+     * @param size número de elementos por página
+     * @return lista de regiones para esa página
+     */
+    @Override
+    public List<Region> listRegionPage(int page, int size, String sortField, String sortDir) {
+        logger.info("Listing regions page={}, size={}, sortField={}, sortDir={} from the database.",
+                page, size, sortField, sortDir);
+        int offset = page * size;
+
+        // 1. Construcción de Criteria
+        CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Region> cq = cb.createQuery(Region.class);
+        Root<Region> root = cq.from(Region.class);
+
+        // 2. Determinar el campo de ordenación permitido (whitelist)
+        Path<?> sortPath;
+        switch (sortField) {
+            case "id"   -> sortPath = root.get("id");
+            case "code" -> sortPath = root.get("code");
+            case "name" -> sortPath = root.get("name");
+            default     -> {
+                logger.warn("Unknown sortField '{}', defaulting to 'name'.", sortField);
+                sortPath = root.get("name");
+            }
+        }
+
+        // 3. Dirección de ordenación
+        boolean descending = "desc".equalsIgnoreCase(sortDir);
+
+        // cb.desc y cb.asc son funciones predefinidas de criteria para las ordenaciones
+        Order order = descending ? cb.desc(sortPath) : cb.asc(sortPath);
+
+        // 4. Aplicar ordenación a la query
+        cq.select(root).orderBy(order);
+
+        // 5. Crear TypedQuery, aplicar paginación y ejecutar
+        return entityManager.createQuery(cq)
+                .setFirstResult(offset)
+                .setMaxResults(size)
+                .getResultList();
+    }
+
+    /**
+     * Devuelve el número total de regiones.
+     */
+    @Override
+    public long countRegions() {
+        String hql = "SELECT COUNT(r) FROM Region r";
+        Long total = entityManager.createQuery(hql, Long.class).getSingleResult();
+        return (total != null) ? total : 0L;
     }
 }

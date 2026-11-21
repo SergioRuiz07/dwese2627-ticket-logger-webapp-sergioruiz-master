@@ -12,46 +12,133 @@
 
 <!-- Contenido dinámico -->
 <main class="list-page">
-    <div class="list-card">
+    <!-- sortField y sortDir se sacan de sortParam ("campo,asc|desc") que envía el controller -->
+    <div class="list-card"
+         th:with="sortField=${sortParam != null ? #strings.substringBefore(sortParam, ',') : 'name'},
+                   sortDir=${sortParam != null ? #strings.substringAfter(sortParam, ',') : 'asc'}">
         <h1 th:text="#{msg.region-list.title}"></h1>
         <a th:href="@{/regions/new}" class="btn btn-success" th:text="#{msg.region-list.add}"></a>
-        <div th:if="${errorMesage}" th:text="${errorMesage}" class="alert alert-danger"></div>
-        <table class="table table-bordered table-striped mt-3">
+        <div th:if="${errorMessage}" th:text="${errorMessage}" class="alert alert-danger mt-3"></div>
+        <table class="table table-bordered table-striped mt-3" th:if="${page != null}">
             <thead>
             <tr>
-                <th th:text="#{msg.region-list.id}"></th>
-                <th th:text="#{msg.region-form.code}">Código</th>
-                <th th:text="#{msg.region-form.name}"></th>
+                <!-- ID -->
+                <th>
+                    <a class="text-decoration-none"
+                       th:href="@{/regions(
+                page=${page.number},
+                size=${page.size},
+                sort=${(sortField == 'id' and sortDir == 'asc') ? 'id,desc' : 'id,asc'}
+           )}">
+                        <span th:text="#{msg.region-list.id}"></span>
+                        <span class="ms-1" th:if="${sortField == 'id'}"
+                              th:text="${sortDir == 'asc'} ? '▲' : '▼'"></span>
+                    </a>
+                </th>
+
+                <!-- Código -->
+                <th>
+                    <a class="text-decoration-none"
+                       th:href="@{/regions(
+                page=${page.number},
+                size=${page.size},
+                sort=${(sortField == 'code' and sortDir == 'asc') ? 'code,desc' : 'code,asc'}
+           )}">
+                        <span th:text="#{msg.region-list.code}"></span>
+                        <span class="ms-1" th:if="${sortField == 'code'}"
+                              th:text="${sortDir == 'asc'} ? '▲' : '▼'"></span>
+                    </a>
+                </th>
+
+                <!-- Nombre -->
+                <th>
+                    <a class="text-decoration-none"
+                       th:href="@{/regions(
+                page=${page.number},
+                size=${page.size},
+                sort=${(sortField == 'name' and sortDir == 'asc') ? 'name,desc' : 'name,asc'}
+           )}">
+                        <span th:text="#{msg.region-list.name}"></span>
+                        <span class="ms-1" th:if="${sortField == 'name'}"
+                              th:text="${sortDir == 'asc'} ? '▲' : '▼'"></span>
+                    </a>
+                </th>
+
                 <th th:text="#{msg.region-list.actions}"></th>
             </tr>
             </thead>
-            <tbody th:each="region:${listRegions}">
+            <tbody th:each="region:${page.content}">
             <tr>
                 <td th:text="${region.id}"></td>
                 <td th:text="${region.code}"></td>
                 <td th:text="${region.name}"></td>
                 <td><a th:href="@{/regions/detail(id=${region.id})}" class="btn btn-outline-secondary btn-sm me-1"
-                       th:text = "#{msg.region-list.viewDetail}"></a>
-                    <a th:href="@{/regions/edit(id=${region.id})}" class="btn btn-primary btn-sm" th:text="#{msg.region-list.edit}"></a>
+                       th:text="#{msg.region-list.viewDetail}"></a>
+                    <a th:href="@{/regions/edit(id=${region.id})}" class="btn btn-primary btn-sm"
+                       th:text="#{msg.region-list.edit}"></a>
                     <form th:action="@{/regions/delete}" method="post" class="d-inline">
                         <input type="hidden" name="id" th:value="${region.id}">
                         <button type="submit" class="btn btn-danger btn-sm"
-                                th:onclick="|return confirm('¿Estas seguro  de querer eliminar esta región?');|" th:text="#{msg.region-list.delete}"></button>
+                                th:onclick="|return confirm('¿Estas seguro  de querer eliminar esta región?');|"
+                                th:text="#{msg.region-list.delete}"></button>
                     </form>
                 </td>
             </tr>
             </tbody>
         </table>
+        <!-- Paginación -->
+        <div class="d-flex justify-content-between align-items-center mt-3"
+             th:if="${page != null and page.totalPages > 0}">
+
+
+            <!-- Info de página -->
+            <div>
+                <!-- "Página X de Y (N registros en total)" -->
+                <span th:text="#{msg.pagination.info(${page.number} + 1, ${page.totalPages}, ${page.totalElements})}"></span>
+            </div>
+
+
+            <!-- Controles de paginación -->
+            <nav th:aria-label="#{msg.pagination.aria.label}">
+                <ul class="pagination mb-0">
+
+
+                    <!-- Botón Anterior -->
+                    <li class="page-item"
+                        th:classappend="${page.first} ? ' disabled'">
+                        <a class="page-link"
+                           th:href="@{/regions(page=${page.number - 1}, size=${page.size}, sort=${sortParam})}"
+                           th:aria-label="#{msg.pagination.prev}">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+
+                    <!-- Números de página -->
+                    <li class="page-item"
+                        th:each="i : ${#numbers.sequence(0, page.totalPages - 1)}"
+                        th:classappend="${i == page.number} ? ' active'">
+                        <a class="page-link"
+                           th:text="${i + 1}"
+                           th:href="@{/regions(page=${i}, size=${page.size}, sort=${sortParam})}"></a>
+                    </li>
+
+                    <!-- Botón Siguiente -->
+                    <li class="page-item"
+                        th:classappend="${page.last} ? ' disabled'">
+                        <a class="page-link"
+                           th:href="@{/regions(page=${page.number + 1}, size=${page.size}, sort=${sortParam})}"
+                           th:aria-label="#{msg.pagination.next}">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
         <a th:href="@{/}" class="btn btn-secondary" th:text="#{msg.region-form.returnback}"></a>
     </div>
 </main>
-
 <!-- Insertar el fragmento del footer -->
 <footer th:replace="fragments/footer :: footer"></footer>
-
-
 <div th:replace="fragments/scripts :: scripts"></div>
-
-
 </body>
 </html>

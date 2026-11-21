@@ -1,9 +1,7 @@
 package org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.daos;
 
 import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities.Province;
-import org.iesalixar.daw2.sergioruiz.dwese2627_ticket_logger_webapp.entities.Region;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public interface ProvinceDAO {
@@ -20,4 +18,8 @@ public interface ProvinceDAO {
     boolean existsProvinceByCode(String code);
 
     boolean existsProvinceByCodeAndNotId(String code, Long id);
+
+    List<Province> listProvincesPage(int page, int size, String sortfield,String sortdir);
+
+    long countProvinces();
 }
